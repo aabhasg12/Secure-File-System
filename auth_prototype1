@@ -1,0 +1,128 @@
+import bcrypt
+import time
+from datetime import datetime, timedelta
+import pyotp  # For two-factor authentication
+import getpass  # To hide password input
+
+# Simulated user database (in real projects, use a proper database)
+users = {
+    "admin_user": {
+        "password_hash": bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()),
+        "role": "admin",
+        "session_expiry": None,
+        "otp_secret": pyotp.random_base32()  # Secret for TFA
+    },
+    "standard_user": {
+        "password_hash": bcrypt.hashpw("user123".encode('utf-8'), bcrypt.gensalt()),
+        "role": "standard",
+        "session_expiry": None,
+        "otp_secret": pyotp.random_base32()
+    }
+}
+
+# Role-based permissions
+permissions = {
+    "admin": ["read", "write", "delete"],
+    "standard": ["read"]
+}
+
+# Session timeout (in seconds, e.g., 300 = 5 minutes)
+SESSION_TIMEOUT = 300
+
+# Function to hash password
+def hash_password(password):
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
+# Function to verify password
+def verify_password(password, hashed):
+    return bcrypt.checkpw(password.encode('utf-8'), hashed)
+
+# Function to generate and verify OTP (Two-Factor Authentication)
+def generate_otp(secret):
+    totp = pyotp.TOTP(secret)
+    return totp.now()
+
+def verify_otp(secret, user_otp):
+    totp = pyotp.TOTP(secret)
+    return totp.verify(user_otp)
+
+# Check if session is still active
+def is_session_active(session_expiry):
+    if session_expiry is None:
+        return False
+    return datetime.now() < session_expiry
+
+# Login function with authentication and TFA
+def login(username, password, use_tfa=False):
+    if username not in users:
+        return False, "User not found"
+    
+    user = users[username]
+    
+    # Verify password
+    if not verify_password(password, user["password_hash"]):
+        return False, "Incorrect password"
+    
+    # Two-Factor Authentication (optional)
+    if use_tfa:
+        print(f"OTP sent: {generate_otp(user['otp_secret'])}")  # In real app, send via email/SMS
+        user_otp = input("Enter OTP: ")
+        if not verify_otp(user["otp_secret"], user_otp):
+            return False, "Invalid OTP"
+    
+    # Set session expiry
+    user["session_expiry"] = datetime.now() + timedelta(seconds=SESSION_TIMEOUT)
+    return True, f"Logged in as {username} (Role: {user['role']})"
+
+# Check permissions for a role
+def check_permission(username, action):
+    if username not in users or not is_session_active(users[username]["session_expiry"]):
+        return False, "Session expired or user not logged in"
+    
+    role = users[username]["role"]
+    if action in permissions.get(role, []):
+        return True, f"Permission granted for {action}"
+    return False, "Permission denied"
+
+# Logout function
+def logout(username):
+    if username in users:
+        users[username]["session_expiry"] = None
+        return "Logged out successfully"
+    return "User not found"
+
+# Main execution
+def module_one():
+    print("=== User Authentication & Access Control ===")
+    
+    while True:
+        print("\n1. Login\n2. Check Permission\n3. Logout\n4. Exit")
+        choice = input("Select an option: ")
+        
+        if choice == "1":
+            username = input("Username: ")
+            password = getpass.getpass("Password: ")
+            use_tfa = input("Enable Two-Factor Authentication? (y/n): ").lower() == 'y'
+            success, message = login(username, password, use_tfa)
+            print(message)
+        
+        elif choice == "2":
+            username = input("Username: ")
+            action = input("Action (read/write/delete): ")
+            allowed, message = check_permission(username, action)
+            print(message)
+        
+        elif choice == "3":
+            username = input("Username: ")
+            print(logout(username))
+        
+        elif choice == "4":
+            print("Exiting...")
+            break
+        
+        else:
+            print("Invalid option")
+
+# Run the module
+if __name__ == "__main__":
+    module_one()
