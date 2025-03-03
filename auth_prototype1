@@ -1,38 +1,66 @@
-import bcrypt
-import time
-from datetime import datetime, timedelta
-import pyotp  # For two-factor authentication
-import getpass  # To hide password input
+from flask import Flask, render_template, request, send_file, url_for, jsonify, send_from_directory, after_this_request, current_app
+from werkzeug.utils import secure_filename
+from datetime import datetime
+import os
+import zipfile
 
-# Simulated user database (in real projects, use a proper database)
-users = {
-    "admin_user": {
-        "password_hash": bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()),
-        "role": "admin",
-        "session_expiry": None,
-        "otp_secret": pyotp.random_base32()  # Secret for TFA
-    },
-    "standard_user": {
-        "password_hash": bcrypt.hashpw("user123".encode('utf-8'), bcrypt.gensalt()),
-        "role": "standard",
-        "session_expiry": None,
-        "otp_secret": pyotp.random_base32()
-    }
-}
 
-# Role-based permissions
-permissions = {
-    "admin": ["read", "write", "delete"],
-    "standard": ["read"]
-}
+app = Flask(__name__)
 
-# Session timeout (in seconds, e.g., 300 = 5 minutes)
-SESSION_TIMEOUT = 300
+# Create a directory to hold temporary files
+temp_dir = os.path.join(os.getcwd(), 'temp')
+os.makedirs(temp_dir, exist_ok=True)
 
-# Function to hash password
-def hash_password(password):
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
+
+def encrypt_file(file_content, password, filename):
+    key = password.encode('utf-8')[:16]
+    key = pad(key, AES.block_size)
+
+    original_hash = calculate_hash(file_content)
+    
+    cipher = AES.new(key, AES.MODE_CBC)
+    ct_bytes = cipher.encrypt(pad(file_content, AES.block_size))
+    iv = cipher.iv
+    
+    # File name suffix
+    encrypted_file_name = f"{os.path.splitext(filename)[0]}_encrypted{os.path.splitext(filename)[1]}"
+    encrypted_file_path = os.path.join(temp_dir, encrypted_file_name)
+    
+    with open(encrypted_file_path, 'wb') as f:
+        f.write(iv + ct_bytes + original_hash.encode())
+    print(f"File written to {encrypted_file_path}")
+    
+    return encrypted_file_path, encrypted_file_name
+
+def decrypt_file(encrypted_content, password, filename):
+    key = password.encode('utf-8')[:16]
+    key = pad(key, AES.block_size)
+
+    stored_hash = encrypted_content[-64:].decode()
+    encrypted_content = encrypted_content[:-64]
+    
+    iv = encrypted_content[:16]
+    ct_bytes = encrypted_content[16:]
+    
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    pt = unpad(cipher.decrypt(ct_bytes), AES.block_size)
+    
+    decrypted_hash = calculate_hash(pt)
+
+    if decrypted_hash != stored_hash:
+        raise ValueError("File integrity compromised.")
+        
+    # Desuffix
+    decrypted_file_name = f"{os.path.splitext(filename)[0]}_decrypted{os.path.splitext(filename)[1]}"
+    decrypted_file_path = os.path.join(temp_dir, decrypted_file_name)
+    
+    with open(decrypted_file_path, 'wb') as f:
+        f.write(pt)
+    
+    return decrypted_file_path, decrypted_file_name
+
+...................................................................................................................................................................
 # Function to verify password
 def verify_password(password, hashed):
     return bcrypt.checkpw(password.encode('utf-8'), hashed)
@@ -125,4 +153,4 @@ def module_one():
 
 # Run the module
 if __name__ == "__main__":
-    module_one()
+    app.run(debug=True)
