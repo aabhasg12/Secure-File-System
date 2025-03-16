@@ -2,6 +2,11 @@ from flask import Flask, render_template, request, send_file, url_for, jsonify, 
 from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.Random import get_random_bytes
 import zipfile
 
 
@@ -60,33 +65,68 @@ def decrypt_file(encrypted_content, password, filename):
     
     return decrypted_file_path, decrypted_file_name
 
-...................................................................................................................................................................
-# Function to verify password
-def verify_password(password, hashed):
-    return bcrypt.checkpw(password.encode('utf-8'), hashed)
+def calculate_hash(file_content):
+    hasher = hashlib.sha256()
+    hasher.update(file_content)
+    return hasher.hexdigest()
 
-# Function to generate and verify OTP (Two-Factor Authentication)
-def generate_otp(secret):
-    totp = pyotp.TOTP(secret)
-    return totp.now()
+@app.route('/')
+def index():
+    return render_template('index.html')
 
-def verify_otp(secret, user_otp):
-    totp = pyotp.TOTP(secret)
-    return totp.verify(user_otp)
+@app.route('/downloads/<path:filename>')
+def download_file(filename):
+    base_directory = temp_dir
 
-# Check if session is still active
-def is_session_active(session_expiry):
-    if session_expiry is None:
-        return False
-    return datetime.now() < session_expiry
+    # Check whether files exist in the temp directory or any of its subdirectories
+    full_path = os.path.join(base_directory, filename)
+    if os.path.isfile(full_path):
+        # Calculates the path of the file directory relative to base_directory
+        directory = os.path.dirname(full_path)
+        # Gets the base name of the file (without path)
+        basename = os.path.basename(filename)
+        return send_from_directory(directory, basename, as_attachment=True)
+    else:
+        return "File not found", 404
 
-# Login function with authentication and TFA
-def login(username, password, use_tfa=False):
-    if username not in users:
-        return False, "User not found"
+@app.route('/encrypt', methods=['POST'])
+def handle_encrypt():
+    file = request.files['file']
+    password = request.form['password']
+    secure_original_name = secure_filename(file.filename)
     
-    user = users[username]
+    encrypted_content, encrypted_file_name = encrypt_file(file.read(), password, secure_original_name)
+    encrypted_file_path = os.path.join(temp_dir, encrypted_file_name)
     
+    return jsonify({'download_url': url_for('download_file', filename=encrypted_file_name)})
+
+    # return send_file(encrypted_file_path, as_attachment=True, download_name=encrypted_file_name)
+
+
+@app.route('/decrypt', methods=['POST'])
+def handle_decrypt():
+    file = request.files['file']
+    password = request.form['password']
+    secure_original_name = secure_filename(file.filename)
+
+    try:
+        decrypted_content, decrypted_file_name = decrypt_file(file.read(), password, secure_original_name)
+    except ValueError:
+        response = jsonify({'error': 'Incorrect password, unable to decrypt.'})
+        response.status_code = 400
+        return response
+    
+    decrypted_file_path = os.path.join(temp_dir, decrypted_file_name)
+    
+    return jsonify({'download_url': url_for('download_file', filename=decrypted_file_name)})
+
+
+    # return send_file(decrypted_file_path, as_attachment=True, download_name=decrypted_file_name)
+............................................................................................................................................................
+note do from line no 141 from vs code
+
+
+
     # Verify password
     if not verify_password(password, user["password_hash"]):
         return False, "Incorrect password"
