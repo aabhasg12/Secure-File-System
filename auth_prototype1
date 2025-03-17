@@ -124,6 +124,38 @@ def handle_decrypt():
     # return send_file(decrypted_file_path, as_attachment=True, download_name=decrypted_file_name)
 ............................................................................................................................................................
 
+@app.route('/generate_key', methods=['GET'])
+def generate_key():
+    # Generate key pair
+    key = RSA.generate(2048)
+    private_key = key.export_key()
+    public_key = key.publickey().export_key()
+    
+    # Use the current time as the directory name to make sure it's different each time
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    key_dir = os.path.join('keys', timestamp)
+    os.makedirs(key_dir, exist_ok=True)
+
+    # Save the key with a unique file name
+    private_keyN = timestamp + '_private.pem'
+    public_keyN = timestamp + '_public.pem'
+    private_key_file = os.path.join(key_dir, private_keyN)
+    public_key_file = os.path.join(key_dir, public_keyN)
+    
+    # Writes the key to a file
+    with open(private_key_file, 'wb') as priv_file:
+        priv_file.write(private_key)
+    with open(public_key_file, 'wb') as pub_file:
+        pub_file.write(public_key)
+    
+    zip_filename = f"{timestamp}_keys.zip"
+    zip_path = os.path.join(key_dir, zip_filename)
+    with zipfile.ZipFile(zip_path, 'w') as zipf:
+        zipf.write(private_key_file, private_keyN)
+        zipf.write(public_key_file, public_keyN)
+
+    return send_file(zip_path, as_attachment=True, download_name=zip_filename)
+    # return jsonify({'download_url': url_for('download_file', filename=zip_filename)})
 
 
 
