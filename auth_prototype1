@@ -123,34 +123,12 @@ def handle_decrypt():
 
     # return send_file(decrypted_file_path, as_attachment=True, download_name=decrypted_file_name)
 ............................................................................................................................................................
-note do from line no 141 from vs code
 
 
 
-    # Verify password
-    if not verify_password(password, user["password_hash"]):
-        return False, "Incorrect password"
-    
-    # Two-Factor Authentication (optional)
-    if use_tfa:
-        print(f"OTP sent: {generate_otp(user['otp_secret'])}")  # In real app, send via email/SMS
-        user_otp = input("Enter OTP: ")
-        if not verify_otp(user["otp_secret"], user_otp):
-            return False, "Invalid OTP"
-    
-    # Set session expiry
-    user["session_expiry"] = datetime.now() + timedelta(seconds=SESSION_TIMEOUT)
-    return True, f"Logged in as {username} (Role: {user['role']})"
 
-# Check permissions for a role
-def check_permission(username, action):
-    if username not in users or not is_session_active(users[username]["session_expiry"]):
-        return False, "Session expired or user not logged in"
-    
-    role = users[username]["role"]
-    if action in permissions.get(role, []):
-        return True, f"Permission granted for {action}"
-    return False, "Permission denied"
+
+
 
 # Logout function
 def logout(username):
