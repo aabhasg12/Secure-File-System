@@ -162,44 +162,60 @@ def generate_key():
 
 
 
-# Logout function
-def logout(username):
-    if username in users:
-        users[username]["session_expiry"] = None
-        return "Logged out successfully"
-    return "User not found"
+@app.route('/decrypt_with_private', methods=['POST'])
+def decrypt_with_private():
+    # Get the uploaded encrypted file and private key
+    encrypted_file = request.files['encrypted_file']
+    private_key_uploaded = request.files['private_key']
+    original_filename = secure_filename(encrypted_file.filename)  
 
-# Main execution
-def module_one():
-    print("=== User Authentication & Access Control ===")
+    # Separate the original file name from the extension
+    original_filename, original_extension = os.path.splitext(secure_filename(encrypted_file.filename))
     
-    while True:
-        print("\n1. Login\n2. Check Permission\n3. Logout\n4. Exit")
-        choice = input("Select an option: ")
-        
-        if choice == "1":
-            username = input("Username: ")
-            password = getpass.getpass("Password: ")
-            use_tfa = input("Enable Two-Factor Authentication? (y/n): ").lower() == 'y'
-            success, message = login(username, password, use_tfa)
-            print(message)
-        
-        elif choice == "2":
-            username = input("Username: ")
-            action = input("Action (read/write/delete): ")
-            allowed, message = check_permission(username, action)
-            print(message)
-        
-        elif choice == "3":
-            username = input("Username: ")
-            print(logout(username))
-        
-        elif choice == "4":
-            print("Exiting...")
-            break
-        
-        else:
-            print("Invalid option")
+    # Remove the added '_encrypted' part of the file name
+    if original_filename.endswith('_encrypted'):
+        original_filename = original_filename[:-(len('_encrypted'))]
+    
+    
+    try:
+        # Load the private key
+        private_key = RSA.import_key(private_key_uploaded.read())
+        cipher_rsa = PKCS1_OAEP.new(private_key)
+
+        # Read encrypted data and decode it
+        encrypted_data = b64decode(encrypted_file.read())
+        enc_aes_key, nonce, tag, ciphertext = \
+            encrypted_data[:256], encrypted_data[256:272], encrypted_data[272:288], encrypted_data[288:]
+
+        # Decrypt the AES key
+        aes_key = cipher_rsa.decrypt(enc_aes_key)
+
+        # Use AES keys to decrypt file data
+        cipher_aes = AES.new(aes_key, AES.MODE_EAX, nonce)
+        try:
+            data = cipher_aes.decrypt_and_verify(ciphertext, tag)
+        except ValueError as e:
+            # Decryption failed. Possible password error
+            return jsonify({'error': 'Decryption failed. Incorrect private key or corrupted data.'}), 400
+
+
+        decrypted_files_directory = os.path.join('temp', 'PrvK_decrypted_files')
+        os.makedirs(decrypted_files_directory, exist_ok=True)
+
+        decrypted_file_name = f"{os.path.splitext(original_filename)[0]}_decrypted"
+
+        # Save decrypted data to file
+        decrypted_file_path = os.path.join(decrypted_files_directory, decrypted_file_name + original_extension)
+        with open(decrypted_file_path, 'wb') as decrypted_file:
+            decrypted_file.write(data)
+
+        download_url = url_for('download_file', filename=os.path.join('PrvK_decrypted_files', decrypted_file_name + original_extension), _external=True)
+        return jsonify({'download_url': download_url}), 200
+
+    except (ValueError, TypeError) as e:
+        return jsonify({'error': str(e)}), 400
+    
+    # Return the decrypted file
 
 # Run the module
 if __name__ == "__main__":
