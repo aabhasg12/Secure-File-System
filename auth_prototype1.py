@@ -157,6 +157,53 @@ def generate_key():
     return send_file(zip_path, as_attachment=True, download_name=zip_filename)
     # return jsonify({'download_url': url_for('download_file', filename=zip_filename)})
 
+@app.route('/encrypt_with_public', methods=['POST'])
+def encrypt_with_public():
+    # Get the uploaded file and public key
+    file = request.files['file']
+    public_key_uploaded = request.files['public_key']
+    
+    # Separate file name and extension
+    original_filename, file_extension = os.path.splitext(secure_filename(file.filename))
+    
+    try:
+        
+        # Loading public key
+        public_key = RSA.import_key(public_key_uploaded.read())
+        cipher_rsa = PKCS1_OAEP.new(public_key)
+        
+        # Generate AES keys
+        aes_key = get_random_bytes(16)
+        
+        # Use AES keys to encrypt file data (The file which needs to be encrypted is too large(plaintext is too long) to encrpted directly with .pem file(the public key))
+        cipher_aes = AES.new(aes_key, AES.MODE_EAX)
+        ciphertext, tag = cipher_aes.encrypt_and_digest(file.read())
+        
+        # Use the RSA public key to encrypt the AES key
+        enc_aes_key = cipher_rsa.encrypt(aes_key)
+        
+        # Merge the encrypted AES key, nonce, tag, and encrypted data
+        encrypted_data = b64encode(enc_aes_key + cipher_aes.nonce + tag + ciphertext)
+
+        encrypted_files_directory = os.path.join('temp', 'PubK_encrypted_files')
+        os.makedirs(encrypted_files_directory, exist_ok=True)
+        
+        # Save encrypted data to a file while preserving the extension of the original file
+        encrypted_file_name = f"{original_filename}_encrypted{file_extension}"
+        encrypted_file_path = os.path.join(encrypted_files_directory, encrypted_file_name)
+        
+        with open(encrypted_file_path, 'wb') as encrypted_file:
+            encrypted_file.write(encrypted_data)
+
+        download_url = url_for('download_file', filename=os.path.join('PubK_encrypted_files', encrypted_file_name), _external=True)
+        return jsonify({'download_url': download_url}), 200
+
+    except (ValueError, TypeError) as e:
+        return jsonify({'error': str(e)}), 400
+    
+    # return send_file(encrypted_file_path, as_attachment=True, download_name=encrypted_file_name)
+
+
 
 
 
