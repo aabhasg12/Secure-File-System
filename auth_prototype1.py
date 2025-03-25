@@ -8,6 +8,8 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.Random import get_random_bytes
 import zipfile
+from base64 import b64encode, b64decode
+import hashlib
 
 app = Flask(__name__)
 
@@ -115,8 +117,6 @@ def handle_decrypt():
     
     return jsonify({'download_url': url_for('download_file', filename=decrypted_file_name)})
     # return send_file(decrypted_file_path, as_attachment=True, download_name=decrypted_file_name)
-............................................................................................................................................................
-
 @app.route('/generate_key', methods=['GET'])
 def generate_key():
     # Generate key pair
