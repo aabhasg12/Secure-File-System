@@ -96,9 +96,7 @@ def handle_encrypt():
     encrypted_file_path = os.path.join(temp_dir, encrypted_file_name)
     
     return jsonify({'download_url': url_for('download_file', filename=encrypted_file_name)})
-
     # return send_file(encrypted_file_path, as_attachment=True, download_name=encrypted_file_name)
-
 
 @app.route('/decrypt', methods=['POST'])
 def handle_decrypt():
@@ -116,8 +114,6 @@ def handle_decrypt():
     decrypted_file_path = os.path.join(temp_dir, decrypted_file_name)
     
     return jsonify({'download_url': url_for('download_file', filename=decrypted_file_name)})
-
-
     # return send_file(decrypted_file_path, as_attachment=True, download_name=decrypted_file_name)
 ............................................................................................................................................................
 
@@ -200,12 +196,6 @@ def encrypt_with_public():
     
     # return send_file(encrypted_file_path, as_attachment=True, download_name=encrypted_file_name)
 
-
-
-
-
-
-
 @app.route('/decrypt_with_private', methods=['POST'])
 def decrypt_with_private():
     # Get the uploaded encrypted file and private key
@@ -219,7 +209,6 @@ def decrypt_with_private():
     # Remove the added '_encrypted' part of the file name
     if original_filename.endswith('_encrypted'):
         original_filename = original_filename[:-(len('_encrypted'))]
-    
     
     try:
         # Load the private key
