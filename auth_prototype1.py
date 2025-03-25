@@ -16,7 +16,6 @@ temp_dir = os.path.join(os.getcwd(), 'temp')
 os.makedirs(temp_dir, exist_ok=True)
 
 
-
 def encrypt_file(file_content, password, filename):
     key = password.encode('utf-8')[:16]
     key = pad(key, AES.block_size)
