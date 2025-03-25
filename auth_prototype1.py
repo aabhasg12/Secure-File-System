@@ -17,6 +17,11 @@ app = Flask(__name__)
 temp_dir = os.path.join(os.getcwd(), 'temp')
 os.makedirs(temp_dir, exist_ok=True)
 
+def calculate_hash(file_content):
+    hasher = hashlib.sha256()
+    hasher.update(file_content)
+    return hasher.hexdigest()
+
 def encrypt_file(file_content, password, filename):
     key = password.encode('utf-8')[:16]
     key = pad(key, AES.block_size)
@@ -64,10 +69,7 @@ def decrypt_file(encrypted_content, password, filename):
     
     return decrypted_file_path, decrypted_file_name
 
-def calculate_hash(file_content):
-    hasher = hashlib.sha256()
-    hasher.update(file_content)
-    return hasher.hexdigest()
+
 
 @app.route('/')
 def index():
