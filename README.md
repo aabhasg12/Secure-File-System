@@ -31,6 +31,8 @@ Decrypting a File with a Private Key
 Choose the encrypted file.
 Upload the private key.
 
+Click on "Decrypt File".
+
 ## Security Practices
 
 Always keep your private keys secure and do not share them.
@@ -40,4 +42,4 @@ Verify the integrity of the files before and after encryption/decryption.
 ## Requirements
 The application requires Python 3.6 or later and Flask. Other dependencies are listed in the requirements.txt file.
 
-Click on "Decrypt File".
+
